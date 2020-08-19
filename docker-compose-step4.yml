@@ -1,0 +1,95 @@
+version: '3'
+
+services:
+
+  ##################################### REPLICA SET NO. 1 ###################################
+  #################################<Rocket Chat 1 ; replSet 1 >##############################
+  rocketchat1:
+    image: rocketchat/rocket.chat:latest
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 10 secs...\";
+          sleep 10;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo11:27017,mongo21:27017,mongo31:27017/rocketchat?replicaSet=rs1&w=majority&wtimeoutMS=2000
+      - MONGO_OPLOG_URL=mongodb://mongo11:27017,mongo21:27017,mongo31:27017/local?replicaSet=rs1&w=majority&wtimeoutMS=2000
+      - MAIL_URL=smtp://localhost
+    depends_on:
+      - mongo-init-replica
+    ports:
+      - 3000:3000
+    labels:
+      - "replicaSet=1"
+
+  ####################################<Mongo 11 ; replSet 1>##############################        
+  mongo11:
+    image: mongo:4.0
+    hostname: mongo11
+    restart: unless-stopped
+    volumes:
+      - ./data/db11:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27017:27017
+
+  ####################################<Mongo 21 ; replSet 1>##############################        
+  mongo21:
+    image: mongo:4.0
+    hostname: mongo21
+    restart: unless-stopped
+    volumes:
+      - ./data/db21:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27018:27017
+
+  ####################################<Mongo 31 ; replSet 1>##############################        
+  mongo31:
+    image: mongo:4.0
+    hostname: mongo31
+    restart: unless-stopped
+    volumes:
+      - ./data/db31:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27019:27017
+
+
+
+  # this container's job is just run the command to initialize the replica set.
+  mongo-init-replica:
+    image: mongo:4.0
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo mongo11/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs1',
+              members: [ { _id: 0, host: 'mongo11:27017' } ,
+                         { _id: 1, host: 'mongo21:27017' } ,
+                         { _id: 2, host: 'mongo31:27017' }]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - mongo11
+      - mongo21
+      - mongo31
+
+

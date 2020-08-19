@@ -1,0 +1,338 @@
+version: '3'
+
+services:
+
+  ##################################### REPLICA SET NO. 1 ###################################
+  #################################<Rocket Chat 1 ; replSet 1 >##############################
+  rocketchat1:
+    image: rocketchat/rocket.chat:latest
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 10 secs...\";
+          sleep 10;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - ./uploads1:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo11:27017,mongo21:27017,mongo31:27017/rocketchat?replicaSet=rs1&w=majority&wtimeoutMS=2000
+      - MONGO_OPLOG_URL=mongodb://mongo11:27017,mongo21:27017,mongo31:27017/local?replicaSet=rs1&w=majority&wtimeoutMS=2000
+      - MAIL_URL=smtp://localhost
+    depends_on:
+      - mongo-init-replica1
+    ports:
+      - 3000:3000
+    labels:
+      - "replicaSet=1"
+
+  ####################################<Mongo 11 ; replSet 1>##############################        
+  mongo11:
+    image: mongo:4.0
+    hostname: mongo11
+    restart: unless-stopped
+    volumes:
+      - ./data/db11:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27017:27017
+
+  ####################################<Mongo 21 ; replSet 1>##############################        
+  mongo21:
+    image: mongo:4.0
+    hostname: mongo21
+    restart: unless-stopped
+    volumes:
+      - ./data/db21:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27018:27017
+
+
+
+  ####################################<Mongo 31 ; replSet 1>##############################        
+  mongo31:
+    image: mongo:4.0
+    hostname: mongo31
+    restart: unless-stopped
+    volumes:
+      - ./data/db31:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs1 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=1"
+    ports:
+      - 27019:27017
+
+
+
+  # this container's job is just run the command to initialize the replica set.
+  # it will run the command and remove himself (it will not stay running)
+  mongo-init-replica1:
+    image: mongo:4.0
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo mongo11/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs1',
+              members: [ { _id: 0, host: 'mongo11:27017' } ,
+                         { _id: 1, host: 'mongo21:27017' } ,
+                         { _id: 2, host: 'mongo31:27017' }]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - mongo11
+      - mongo21
+      - mongo31
+
+
+
+  ##################################### REPLICA SET NO. 2 ###################################
+  #################################<Rocket Chat 2 ; replSet 2 >##############################
+  rocketchat2:
+    image: rocketchat/rocket.chat:latest
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 10 secs...\";
+          sleep 10;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - ./uploads2:/app/uploads
+    environment:
+      - PORT=3001
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo12:27017,mongo22:27017,mongo32:27017/rocketchat?replicaSet=rs2&w=majority&wtimeoutMS=2000
+      - MONGO_OPLOG_URL=mongodb://mongo12:27017,mongo22:27017,mongo32:27017/local?replicaSet=rs2&w=majority&wtimeoutMS=2000
+      - MAIL_URL=smtp://localhost
+    depends_on:
+      - mongo-init-replica2
+    ports:
+      - 3001:3001
+    labels:
+      - "replicaSet=2"
+
+  ####################################<Mongo 12 ; replSet 2>##############################        
+  mongo12:
+    image: mongo:4.0
+    hostname: mongo12
+    restart: unless-stopped
+    volumes:
+      - ./data/db12:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs2 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=2"
+    ports:
+      - 27020:27017
+
+  ####################################<Mongo 22 ; replSet 2>##############################        
+  mongo22:
+    image: mongo:4.0
+    hostname: mongo22
+    restart: unless-stopped
+    volumes:
+      - ./data/db22:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs2 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=2"
+    ports:
+      - 27021:27017
+
+
+
+  ####################################<Mongo 32 ; replSet 2>##############################        
+  mongo32:
+    image: mongo:4.0
+    hostname: mongo32
+    restart: unless-stopped
+    volumes:
+      - ./data/db32:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs2 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=2"
+    ports:
+      - 27022:27017
+
+
+
+  # this container's job is just run the command to initialize the replica set.
+  # it will run the command and remove himself (it will not stay running)
+  mongo-init-replica2:
+    image: mongo:4.0
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo mongo12/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs2',
+              members: [ { _id: 0, host: 'mongo12:27017' } ,
+                         { _id: 1, host: 'mongo22:27017' } ,
+                         { _id: 2, host: 'mongo32:27017' }]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - mongo12
+      - mongo22
+      - mongo32
+
+
+
+  ##################################### REPLICA SET NO. 3 ###################################
+  #################################<Rocket Chat 3 ; replSet 3 >##############################
+  rocketchat3:
+    image: rocketchat/rocket.chat:latest
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 10 secs...\";
+          sleep 10;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - ./uploads3:/app/uploads
+    environment:
+      - PORT=3002
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo13:27017,mongo23:27017,mongo33:27017/rocketchat?replicaSet=rs3&w=majority&wtimeoutMS=2000
+      - MONGO_OPLOG_URL=mongodb://mongo13:27017,mongo23:27017,mongo33:27017/local?replicaSet=rs3&w=majority&wtimeoutMS=2000
+      - MAIL_URL=smtp://localhost
+    depends_on:
+      - mongo-init-replica3
+    ports:
+      - 3002:3002
+    labels:
+      - "replicaSet=3"
+
+  ####################################<Mongo 13 ; replSet 3>##############################        
+  mongo13:
+    image: mongo:4.0
+    hostname: mongo13
+    restart: unless-stopped
+    volumes:
+      - ./data/db13:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs3 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=3"
+    ports:
+      - 27023:27017
+
+  ####################################<Mongo 23 ; replSet 3>##############################        
+  mongo23:
+    image: mongo:4.0
+    hostname: mongo23
+    restart: unless-stopped
+    volumes:
+      - ./data/db23:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs3 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=3"
+    ports:
+      - 27024:27017
+
+
+
+  ####################################<Mongo 33 ; replSet 3>##############################        
+  mongo33:
+    image: mongo:4.0
+    hostname: mongo33
+    restart: unless-stopped
+    volumes:
+      - ./data/db33:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs3 --storageEngine=mmapv1
+    labels:
+      - "replicaSet=3"
+    ports:
+      - 27025:27017
+
+
+
+  # this container's job is just run the command to initialize the replica set.
+  # it will run the command and remove himself (it will not stay running)
+  mongo-init-replica3:
+    image: mongo:4.0
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo mongo13/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs3',
+              members: [ { _id: 0, host: 'mongo13:27017' } ,
+                         { _id: 1, host: 'mongo23:27017' } ,
+                         { _id: 2, host: 'mongo33:27017' }]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - mongo13
+      - mongo23
+      - mongo33
+
+
+  #################################<MongoDB Exporters3>##############################
+  # one mongodb exporter for each cluster                                                                                                                                                     
+  mongodb_exporter1:
+    image: bitnami/mongodb-exporter:latest
+    command:
+      - "--mongodb.uri=mongodb://mongo11:27017,mongo21:27017,mongo31:27017/rocketchat?replicaSet=rs1"
+    restart: unless-stopped
+    ports:
+      - "9001:9216"
+    depends_on:
+      - mongo-init-replica1
+
+
+  mongodb_exporter2:
+    image: bitnami/mongodb-exporter:latest
+    command:
+      - "--mongodb.uri=mongodb://mongo12:27017,mongo22:27017,mongo32:27017/rocketchat?replicaSet=rs2"
+    restart: unless-stopped
+    ports:
+      - "9002:9216"
+    depends_on:
+      - mongo-init-replica2
+
+
+  mongodb_exporter3:
+    image: bitnami/mongodb-exporter:latest
+    command:
+      - "--mongodb.uri=mongodb://mongo13:27017,mongo23:27017,mongo33:27017/rocketchat?replicaSet=rs3"
+    restart: unless-stopped
+    ports:
+      - "9003:9216"
+    depends_on:
+      - mongo-init-replica3
+
+
+  ################################<Prometheus>##############################
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      # if chosen to change the default DB path, its permission must be nobody:nogroup                                       
+    ports:
+      - "9090:9090"
+    depends_on:
+      - mongodb_exporter1
+      - mongodb_exporter2
+      - mongodb_exporter3

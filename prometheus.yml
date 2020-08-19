@@ -1,0 +1,37 @@
+global:
+  scrape_interval:     1s # By default, scrape targets every 1 second.
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'codelab-monitor'
+
+
+# we have included prometheus itself along with the MongoDB clusters
+scrape_configs:
+
+  - job_name: 'prometheus'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name:  'rocketchat_group'
+
+    # Override the global default and scrape targets from this job every 10 seconds.
+    scrape_interval: 10s
+
+    static_configs:
+      - targets: ['rocketchat1:9458', 'mongodb_exporter1:9216']
+        labels:
+          group: 'cluster1'
+
+      - targets: ['rocketchat2:9458', 'mongodb_exporter2:9216']
+        labels:
+          group: 'cluster2'
+
+      - targets: ['rocketchat3:9458', 'mongodb_exporter3:9216']
+        labels:
+          group: 'cluster3'
